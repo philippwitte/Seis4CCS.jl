@@ -17,8 +17,11 @@ end
 parsed_args = parse_commandline()
 L = parsed_args["nv"]
 
-JLD2.@load "../models/Compass_tti_625m.jld2"
-JLD2.@load "../data/Conc.jld2" conc
+modeldir = ENV["MODELDIR"]
+datadir = ENV["DATADIR"]
+
+JLD2.@load modeldir * "/Compass_tti_625m.jld2"
+JLD2.@load datadir * "/Conc.jld2" conc
 
 extentx = (n[1]-1)*d[1]
 extentz = (n[2]-1)*d[2]

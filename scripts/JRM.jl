@@ -22,11 +22,15 @@ L = parsed_args["nv"]
 Random.seed!(1234);
 
 creds=joinpath(pwd(),"..","credentials.json")
-init_culsterless(8*L; credentials=creds, vm_size="Standard_F4", pool_name="JRM", verbose=1, nthreads=4)
+init_culsterless(8*L; credentials=creds, vm_size="Standard_E4s_v3", pool_name="JRM", verbose=1, nthreads=4)
 
-JLD2.@load "../models/Compass_tti_625m.jld2"
-JLD2.@load "../models/timelapsevrho$(L)vint.jld2" vp_stack rho_stack
-JLD2.@load "../data/dobs$(L)vint.jld2" dobs_stack q_stack
+modeldir = ENV["MODELDIR"]
+datadir = ENV["DATADIR"]
+resultdir = ENV["RESULTDIR"]
+
+JLD2.@load modeldir * "/Compass_tti_625m.jld2"
+JLD2.@load modeldir * "/timelapsevrho$(L)vint.jld2" vp_stack rho_stack
+JLD2.@load datadir * "/dobs$(L)vint.jld2" dobs_stack q_stack
 
 idx_wb = find_water_bottom(rho.-rho[1,1])
 
@@ -146,5 +150,5 @@ for  j=1:niter
 	for i = 1:L+1
 		global flag[i] = flag[i] .| (abs.(z[i]).>=lambda[i])     # check if ever pass the threshold
 	end
-    JLD2.@save "../results/JRM$(j)Iter$(L)vintages.jld2" x z g lambda phi
+    JLD2.@save resultdir * "/JRM$(j)Iter$(L)vintages.jld2" x z g lambda phi
 end

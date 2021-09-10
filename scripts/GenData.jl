@@ -24,8 +24,11 @@ nsrc = parsed_args["nsrc"]
 
 Random.seed!(1234)
 
-JLD2.@load "../models/Compass_tti_625m.jld2"
-JLD2.@load "../models/timelapsevrho$(L)vint.jld2" vp_stack rho_stack
+modeldir = ENV["MODELDIR"]
+datadir = ENV["DATADIR"]
+
+JLD2.@load modeldir * "/Compass_tti_625m.jld2"
+JLD2.@load modeldir * "/timelapsevrho$(L)vint.jld2" vp_stack rho_stack
 idx_wb = find_water_bottom(rho.-rho[1,1])
 include("../utils/Jitter.jl")
 
@@ -39,7 +42,7 @@ timeS = timeR = 2500f0
 nrec = Int.(floor((n[1]-1)*d[1]))   # 1m
 
 creds=joinpath(pwd(),"..","credentials.json")
-init_culsterless(nsrc; credentials=creds, vm_size="Standard_F4", pool_name="Fq", verbose=1, nthreads=4)
+init_culsterless(nsrc; credentials=creds, vm_size="Standard_E4s_v3", pool_name="Fq", verbose=1, nthreads=4)
 
 xsrc_stack = [convertToCell(ContJitter(n, d, nsrc)) for i = 1:L]
 ysrc = convertToCell(range(0f0,stop=0f0,length=nsrc))
@@ -68,4 +71,4 @@ for i = 1:L
     dobs_stack[i] = F_stack[i] * q_stack[i]
 end
 
-JLD2.@save "../data/dobs$(L)vint.jld2" dobs_stack q_stack
+JLD2.@save datadir * "/dobs$(L)vint.jld2" dobs_stack q_stack

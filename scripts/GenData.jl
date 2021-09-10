@@ -27,8 +27,8 @@ Random.seed!(1234)
 modeldir = ENV["MODELDIR"]
 datadir = ENV["DATADIR"]
 
-JLD2.@load modeldir * "/Compass_tti_625m.jld2"
-JLD2.@load modeldir * "/timelapsevrho$(L)vint.jld2" vp_stack rho_stack
+JLD2.@load joinpath(modeldir, "/Compass_tti_625m.jld2")
+JLD2.@load joinpath(modeldir, "/timelapsevrho$(L)vint.jld2") vp_stack rho_stack
 idx_wb = find_water_bottom(rho.-rho[1,1])
 include("../utils/Jitter.jl")
 
@@ -71,4 +71,4 @@ for i = 1:L
     dobs_stack[i] = F_stack[i] * q_stack[i]
 end
 
-JLD2.@save datadir * "/dobs$(L)vint.jld2" dobs_stack q_stack
+JLD2.@save joinpath(datadir, "/dobs$(L)vint.jld2") dobs_stack q_stack

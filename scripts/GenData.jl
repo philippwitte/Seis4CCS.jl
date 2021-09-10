@@ -24,11 +24,11 @@ nsrc = parsed_args["nsrc"]
 
 Random.seed!(1234)
 
-modeldir = ENV["MODELDIR"]
-datadir = ENV["DATADIR"]
+#modeldir = ENV["MODELDIR"]
+#datadir = ENV["DATADIR"]
 
-JLD2.@load join([modeldir, "/Compass_tti_625m.jld2"])
-JLD2.@load join([modeldir, "/timelapsevrho$(L)vint.jld2"]) vp_stack rho_stack
+JLD2.@load "/scratch/models/Compass_tti_625m.jld2"
+JLD2.@load "/scratch/models/timelapsevrho$(L)vint.jld2" vp_stack rho_stack
 idx_wb = find_water_bottom(rho.-rho[1,1])
 include("../utils/Jitter.jl")
 
@@ -71,4 +71,4 @@ for i = 1:L
     dobs_stack[i] = F_stack[i] * q_stack[i]
 end
 
-JLD2.@save join([datadir, "/dobs$(L)vint.jld2"]) dobs_stack q_stack
+JLD2.@save "/scratch/data/dobs$(L)vint.jld2" dobs_stack q_stack

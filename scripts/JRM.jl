@@ -28,9 +28,9 @@ modeldir = ENV["MODELDIR"]
 datadir = ENV["DATADIR"]
 resultdir = ENV["RESULTDIR"]
 
-JLD2.@load joinpath(modeldir, "/Compass_tti_625m.jld2")
-JLD2.@load joinpath(modeldir, "/timelapsevrho$(L)vint.jld2") vp_stack rho_stack
-JLD2.@load joinpath(datadir, "/dobs$(L)vint.jld2") dobs_stack q_stack
+JLD2.@load join([modeldir, "/Compass_tti_625m.jld2"])
+JLD2.@load join([modeldir, "/timelapsevrho$(L)vint.jld2"]) vp_stack rho_stack
+JLD2.@load join([datadir, "/dobs$(L)vint.jld2"]) dobs_stack q_stack
 
 idx_wb = find_water_bottom(rho.-rho[1,1])
 
@@ -150,5 +150,5 @@ for  j=1:niter
 	for i = 1:L+1
 		global flag[i] = flag[i] .| (abs.(z[i]).>=lambda[i])     # check if ever pass the threshold
 	end
-    JLD2.@save joinpath(resultdir, "/JRM$(j)Iter$(L)vintages.jld2") x z g lambda phi
+    JLD2.@save join([resultdir, "/JRM$(j)Iter$(L)vintages.jld2"]) x z g lambda phi
 end

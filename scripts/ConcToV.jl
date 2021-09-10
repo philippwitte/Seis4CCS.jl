@@ -20,8 +20,8 @@ L = parsed_args["nv"]
 modeldir = ENV["MODELDIR"]
 datadir = ENV["DATADIR"]
 
-JLD2.@load joinpath(modeldir, "/Compass_tti_625m.jld2")
-JLD2.@load joinpath(datadir, "/Conc.jld2") conc
+JLD2.@load join([modeldir, "/Compass_tti_625m.jld2"])
+JLD2.@load join([datadir, "/Conc.jld2"]) conc
 
 extentx = (n[1]-1)*d[1]
 extentz = (n[2]-1)*d[2]
@@ -95,4 +95,4 @@ sw_stack = [Float32.(imresize([zeros(Float32,19,325);conc[indices[i],:,:]]',n)) 
 vp_stack = [Patchy(sw_stack[i], vp, vs, rho, phi)[1] for i = 1:L]
 rho_stack = [Patchy(sw_stack[i], vp, vs, rho, phi)[3] for i = 1:L]
 
-JLD2.@save joinpath(modeldir, "/timelapsevrho$(L)vint.jld2") vp_stack rho_stack
+JLD2.@save join([modeldir, "/timelapsevrho$(L)vint.jld2"]) vp_stack rho_stack

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-mkdir results
+mkdir $RESULTDIR
 
 mkdir $DATADIR
 cd $DATADIR

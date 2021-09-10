@@ -2,13 +2,13 @@
 
 mkdir $RESULTDIR
 
-mkdir $DATADIR
-cd $DATADIR
+mkdir $MODELDIR
+cd $MODELDIR
 wget https://www.dropbox.com/s/n2cc5nntameh4rg/Compass_tti_625m.jld2
 cd $APPDIR
 
-mkdir $MODELDIR
-cd $MODELDIR
+mkdir $DATADIR
+cd $DATADIR
 wget https://www.dropbox.com/s/radan2hxgb5jnc5/Conc.jld2
 
 cd $APPDIR/scripts

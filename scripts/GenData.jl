@@ -42,7 +42,7 @@ timeS = timeR = 2500f0
 nrec = Int.(floor((n[1]-1)*d[1]))   # 1m
 
 creds=joinpath(pwd(),"..","credentials.json")
-init_culsterless(nsrc; credentials=creds, vm_size="Standard_E4s_v3", pool_name="Fq", verbose=1, nthreads=4)
+init_culsterless(nsrc; credentials=creds, vm_size="Standard_E4s_v3", pool_name="CCSpool", verbose=1, nthreads=4)
 
 xsrc_stack = [convertToCell(ContJitter(n, d, nsrc)) for i = 1:L]
 ysrc = convertToCell(range(0f0,stop=0f0,length=nsrc))

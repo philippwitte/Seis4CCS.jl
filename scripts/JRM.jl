@@ -22,7 +22,7 @@ L = parsed_args["nv"]
 Random.seed!(1234);
 
 creds=joinpath(pwd(),"..","credentials.json")
-init_culsterless(8*L; credentials=creds, vm_size="Standard_E4s_v3", pool_name="JRM", verbose=1, nthreads=4)
+init_culsterless(8*L; credentials=creds, vm_size="Standard_E4s_v3", pool_name="CCSpool", verbose=1, nthreads=4)
 
 # modeldir = ENV["MODELDIR"]
 # datadir = ENV["DATADIR"]

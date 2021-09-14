@@ -13,43 +13,41 @@ vm = parsed_args["vm"]
 niter = parsed_args["niter"]
 nth = parsed_args["nth"]
 nsrc = parsed_args["nsrc"]
+batchsize = parsed_args["bs"]
 
 Random.seed!(1234);
 
 creds=joinpath(pwd(),"..","credentials.json")
+init_culsterless(batchsize*L; credentials=creds, vm_size=vm, pool_name="JRM", verbose=1, nthreads=nth, auto_scale=false)
 
-init_culsterless(8*L; credentials=creds, vm_size=vm, pool_name="JRM", verbose=1, nthreads=nth, auto_scale=false)
-
-JLD2.@load "/scratch/models/Compass_tti_625m.jld2"
-JLD2.@load "/scratch/models/timelapsevrho$(L)vint.jld2" vp_stack rho_stack
-JLD2.@load "/scratch/data/dobs$(L)vint$(nsrc)nsrc.jld2" dobs_stack q_stack
+JLD2.@load "../models/Compass_tti_625m.jld2"
+JLD2.@load "../models/timelapsevrho$(L)vint.jld2" vp_stack rho_stack
+JLD2.@load "../data/dobs$(L)vint$(nsrc)nsrc.jld2" dobs_stack q_stack
 
 idx_wb = find_water_bottom(rho.-rho[1,1])
 
 nsrc = dobs_stack[1].nsrc
 
-v0 = deepcopy(vp_stack[1]/1f3)
-v0[:,maximum(idx_wb)+1:end] .= 1f0./convert(Array{Float32,2},imfilter(1f3./vp_stack[1][:,maximum(idx_wb)+1:end], Kernel.gaussian(10)))
-m0 = 1f0./v0.^2f0
+v0_stack = deepcopy(vp_stack./1f3)
+for i = 1:L
+    v0_stack[i][:,maximum(idx_wb)+1:end] .= 1f0./convert(Array{Float32,2},imfilter(1f3./vp_stack[i][:,maximum(idx_wb)+1:end], Kernel.gaussian(10)))
+end
+m0_stack = [1f0./v0_stack[i].^2f0 for i = 1:L]
 
-rho0 = deepcopy(rho_stack[1])
-rho0[:,maximum(idx_wb)+1:end] .= 1f0./convert(Array{Float32,2},imfilter(1f0./rho_stack[1][:,maximum(idx_wb)+1:end], Kernel.gaussian(10)))
+model0_stack = [Model(n,d,o,m0_stack[i]; nb=80) for i = 1:L]
 
-model0 = Model(n,d,o,m0; rho=rho0,nb=80)
 opt = JUDI.Options(isic=true)
 
 # Preconditioner
 
-Tm = judiTopmute(model0.n, maximum(idx_wb), 3)  # Mute water column
-S = judiDepthScaling(model0)
+Tm = judiTopmute(model0_stack[1].n, maximum(idx_wb), 3)  # Mute water column
+S = judiDepthScaling(model0_stack[1])
 Mr = Tm*S
 
 # Linearized Bregman parameters
-nn = prod(model0.n)
+nn = prod(model0_stack[1].n)
 x = zeros(Float32, nn)
 z = zeros(Float32, nn)
-
-batchsize = 8
 
 fval = zeros(Float32, niter)
 
@@ -108,17 +106,13 @@ for  j=1:niter
 		println("Vintage $(i) Imaging source $(inds[i])")
     end
 
-    Model0 = [model0 for i = 1:L]
     source = [q_stack[i][inds[i]] for i = 1:L]
     dObs = [dobs_stack[i][inds[i]] for i = 1:L]
     dmx = [Mr*xdm[i] for i = 1:L]
     
-    phi, g1 = lsrtm_objective(Model0, source, dObs, dmx; options=opt, nlind=true)
-	g = Array{Array{Float64,1},1}(undef, L+1)
-	g[1] = 1f0/γ*C*Mr'*vec(sum(g1))
-	for i = 2:L+1
-		g[i] = C*Mr'*vec(g1[i-1])
-	end
+    phi, g1 = lsrtm_objective(model0_stack, source, dObs, dmx; options=opt, nlind=false)
+    g = [1f0/γ*C*Mr'*vec(sum(g1)), [C*Mr'*vec(g1[i]) for i=1:L]...]
+
 	@printf("At iteration %d function value is %2.2e \n", j, phi)
 	flush(Base.stdout)
 	# Step size and update variable
@@ -133,7 +127,7 @@ for  j=1:niter
 		global z[i] -= tau[i] .* g[i]
 	end
 
-	(j==1) && global lambda = [quantile(abs.(vec(z[i])), .8) for i = 1:L+1]	# estimate thresholding parameter at 1st iteration
+	(j==1) && global lambda = [quantile(abs.(vec(z[i])), .9) for i = 1:L+1]	# estimate thresholding parameter at 1st iteration
     lambda1 = maximum(lambda[2:end])
     for i = 2:L+1
         global lambda[i] = lambda1
@@ -144,5 +138,5 @@ for  j=1:niter
 	for i = 1:L+1
 		global flag[i] = flag[i] .| (abs.(z[i]).>=lambda[i])     # check if ever pass the threshold
 	end
-    JLD2.@save "/scratch/results/JRM$(j)Iter$(L)vintages$(nsrc)nsrc.jld2" x z g lambda phi
+    JLD2.@save "../results/JRM$(j)Iter$(L)vintages$(nsrc)nsrc.jld2" x z g lambda phi
 end

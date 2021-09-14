@@ -17,8 +17,8 @@ init_culsterless(nsrc*L; credentials=creds, vm_size=vm, pool_name="Jdm", verbose
 
 Random.seed!(1234)
 
-JLD2.@load "../models/Compass_tti_625m.jld2"
-JLD2.@load "../models/timelapsevrho$(L)vint.jld2" vp_stack rho_stack
+JLD2.@load "/scratch/models/Compass_tti_625m.jld2"
+JLD2.@load "/scratch/models/timelapsevrho$(L)vint.jld2" vp_stack rho_stack
 idx_wb = find_water_bottom(rho.-rho[1,1])
 include("../utils/Jitter.jl")
 
@@ -71,4 +71,4 @@ dobs_stack = Array{judiVector{Float32,Array{Float32,2}},1}(undef, L)
     @async dobs_stack[i] = J_stack[i] * dm_stack[i]
 end
 
-JLD2.@save "../data/dobs$(L)vint$(nsrc)nsrc.jld2" dobs_stack q_stack
+JLD2.@save "/scratch/data/dobs$(L)vint$(nsrc)nsrc.jld2" dobs_stack q_stack

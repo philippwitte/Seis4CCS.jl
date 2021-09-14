@@ -9,7 +9,7 @@ L = parsed_args["nv"]
 nsrc = parsed_args["nsrc"]
 snr = parsed_args["snr"]
 
-JLD2.@load "../data/dobs$(L)vint$(nsrc)nsrc.jld2" dobs_stack q_stack
+JLD2.@load "/scratch/data/dobs$(L)vint$(nsrc)nsrc.jld2" dobs_stack q_stack
 
 scale = 10^(-snr/20)
 
@@ -25,4 +25,4 @@ end
 
 dobs_stack = dobs_stack + noise_stack
 
-JLD2.@load "../data/dobs$(L)vint$(nsrc)nsrc.jld2" dobs_stack q_stack
+JLD2.@load "/scratch/data/dobs$(L)vint$(nsrc)nsrc.jld2" dobs_stack q_stack

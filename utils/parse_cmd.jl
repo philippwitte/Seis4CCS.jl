@@ -12,7 +12,7 @@ function parse_commandline()
         "--vm"
             help = "Type of virtual machine"
             arg_type = String
-            default = "Standard_F4"
+            default = "Standard_E8s_v3"
         "--nth"
             help = "Number of threads on a single node"
             arg_type = Int
@@ -29,6 +29,10 @@ function parse_commandline()
             help = "SNR of noisy data"
             arg_type = Float64
             default = 0.0
+        "--gamma"
+            help = "Weighting on common component"
+            arg_type = Float64
+            default = 1.0
     end
     return parse_args(s)
 end

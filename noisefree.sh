@@ -1,17 +1,17 @@
 #!/bin/bash
 
-mkdir $RESULTDIR
+mkdir results
 
-mkdir $MODELDIR
-cd $MODELDIR
+mkdir models
+cd models
 wget https://www.dropbox.com/s/n2cc5nntameh4rg/Compass_tti_625m.jld2
-cd $APPDIR
+cd ..
 
-mkdir $DATADIR
-cd $DATADIR
+mkdir data
+cd data
 wget https://www.dropbox.com/s/radan2hxgb5jnc5/Conc.jld2
 
-cd $APPDIR/scripts
+cd ../scripts
 
 L=${L:=2}
 nsrc=${nsrc:=4}
@@ -24,6 +24,4 @@ gamma=${gamma:=1}
 
 julia ConcToV.jl --nv $L
 julia GenLinearData.jl --nv $L --nsrc $nsrc --vm $vm --nth $nth
-julia GenBandNoise.jl --nv $L --nsrc $nsrc --vm $vm --nth $nth --snr $snr
 julia JRMsim.jl --nv $L --nsrc $nsrc --vm $vm --nth $nth --niter $niter --bs $bs --gamma $gamma
-julia IndpRec.jl --nv $L --nsrc $nsrc --vm $vm --nth $nth --niter $niter --bs $bs

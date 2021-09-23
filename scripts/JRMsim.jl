@@ -14,15 +14,15 @@ niter = parsed_args["niter"]
 nth = parsed_args["nth"]
 nsrc = parsed_args["nsrc"]
 batchsize = parsed_args["bs"]
+γ = Float32(parsed_args["gamma"]) # hyperparameter to tune
 
 Random.seed!(1234);
-
 creds=joinpath(pwd(),"..","credentials.json")
-init_culsterless(batchsize*L; credentials=creds, vm_size=vm, pool_name="JRM", verbose=1, nthreads=nth, auto_scale=false)
+init_culsterless(L; credentials=creds, vm_size=vm, pool_name="JointRecovery", verbose=1, nthreads=nth, auto_scale=false, n_julia_per_instance=batchsize)
 
-JLD2.@load "/scratch/models/Compass_tti_625m.jld2"
-JLD2.@load "/scratch/models/timelapsevrho$(L)vint.jld2" vp_stack rho_stack
-JLD2.@load "/scratch/data/dobs$(L)vint$(nsrc)nsrc.jld2" dobs_stack q_stack
+JLD2.@load "../models/Compass_tti_625m.jld2"
+JLD2.@load "../models/timelapsevrho$(L)vint.jld2" vp_stack rho_stack
+JLD2.@load "../data/dobs$(L)vint$(nsrc)nsrcnoisefree.jld2" dobs_stack q_stack
 
 idx_wb = find_water_bottom(rho.-rho[1,1])
 
@@ -43,13 +43,6 @@ opt = JUDI.Options(isic=true)
 Tm = judiTopmute(model0_stack[1].n, maximum(idx_wb), 3)  # Mute water column
 S = judiDepthScaling(model0_stack[1])
 Mr = Tm*S
-
-# Linearized Bregman parameters
-nn = prod(model0_stack[1].n)
-x = zeros(Float32, nn)
-z = zeros(Float32, nn)
-
-fval = zeros(Float32, niter)
 
 # Soft thresholding functions and Curvelet transform
 soft_thresholding(x::Array{Float64}, lambda) = sign.(x) .* max.(abs.(x) .- convert(Float64, lambda), 0.0)
@@ -74,60 +67,63 @@ C = joLinearFunctionFwd_T(size(C0, 1), n[1]*n[2],
                           b -> C_adj(b, C0, n),
                           Float32,Float64, name="Cmirrorext")
 
-src_list = [collect(1:nsrc) for i = 1:L]
-
-ps = 0
-γ  = L/2f0 # hyperparameter to tune
-
 x = [zeros(Float32, size(C,2)) for i=1:L+1];
 z = [zeros(Float64, size(C,1)) for i=1:L+1];
 
-tau = [zeros(Float32,size(C,1)) for i=1:L+1];
 flag = [BitArray(undef,size(C,1)) for i=1:L+1];
-sumsign = [zeros(Float32,size(C,1)) for i=1:L+1]
+sumsign = [zeros(Float32,size(C,1)) for i=1:L+1];
 
-lambda = zeros(Float64,L+1)
+lambda = zeros(Float64,L+1);
+
+# sim src acquisition
+xsrc_stack = [[[q_stack[i].geometry.xloc[s][1] for s = 1:dobs_stack[i].nsrc] for k = 1:batchsize] for i = 1:L]
+ysrc_stack = [[[0.0f0] for k = 1:batchsize] for i = 1:L]
+zsrc_stack = [[[q_stack[i].geometry.zloc[s][1] for s = 1:dobs_stack[i].nsrc] for k = 1:batchsize] for i = 1:L]
+
+src_geometry_stack = [Geometry(xsrc_stack[i], ysrc_stack[i], zsrc_stack[i]; dt=q_stack[i].geometry.dt[1], t=q_stack[i].geometry.t[1]) for i = 1:L]
+
 
 # Main loop
 
 for  j=1:niter
 
 	# Main loop			   
-    @printf("JRM Iteration: %d \n", j)
+    @printf("Simultaneous source JRM Iteration: %d \n", j)
     flush(Base.stdout)
-				
-    xdm = [1f0/γ*x[1]+x[i+1] for i=1:L];
-    global inds = [zeros(Int, batchsize) for i=1:L]
 
-    for i = 1:L
-        length(src_list[i]) < batchsize && (global src_list[i] = collect(1:nsrc))
-		src_list[i] = src_list[i][randperm(MersenneTwister(i+2000*j),length(src_list[i]))]
-		global inds[i] = [pop!(src_list[i]) for b=1:batchsize]
-		println("Vintage $(i) Imaging source $(inds[i])")
-    end
+    # Set up weights for current iteration
+    weights = [randn(Float32, batchsize, nsrc) for i = 1:L]
 
-    source = [q_stack[i][inds[i]] for i = 1:L]
-    dObs = [dobs_stack[i][inds[i]] for i = 1:L]
-    dmx = [Mr*xdm[i] for i = 1:L]
+    # Create wavelet
+    wavelet = [[hcat(q_stack[i].data...) .* weights[i][k:k,:] for k = 1:batchsize] for i = 1:L]
+
+    # Create sim src
+    q_j = [judiVector(src_geometry_stack[i], wavelet[i]) for i = 1:L]  # super shot for current iteration
+
+    # Create sim data
+    data_j = [[sum(weights[i][k,:].*dobs_stack[i].data) for k = 1:batchsize] for i = 1:L]
+    dobs_j = [judiVector(Geometry(dobs_stack[i].geometry.xloc[1],dobs_stack[i].geometry.yloc[1],dobs_stack[i].geometry.zloc[1]; dt=dobs_stack[i].geometry.dt[1], t=dobs_stack[i].geometry.t[1], nsrc=batchsize),data_j[i]) for i = 1:L]
+
+    dmx = [Mr*(1f0/γ*x[1]+x[i+1]) for i = 1:L]
     
-    phi, g1 = lsrtm_objective(model0_stack, source, dObs, dmx; options=opt, nlind=false)
+    phi, g1 = lsrtm_objective(model0_stack, q_j, dobs_j, dmx; options=opt, nlind=false)
     g = [1f0/γ*C*Mr'*vec(sum(g1)), [C*Mr'*vec(g1[i]) for i=1:L]...]
 
 	@printf("At iteration %d function value is %2.2e \n", j, phi)
 	flush(Base.stdout)
 	# Step size and update variable
 
-	global t = γ^2f0*2f-5/(L+γ^2f0)/12.5 # fixed step
+	global t = γ^2f0*5f-6/(L+γ^2f0) # fixed step
 
     # anti-chatter
-	for i = 1:L+1
-		global sumsign[i] = sumsign[i] + sign.(g[i])
-		global tau[i] .= t
-		global tau[i][findall(flag[i])] = deepcopy((t*abs.(sumsign[i])/j)[findall(flag[i])])
-		global z[i] -= tau[i] .* g[i]
-	end
+    for i = 1:L+1
+        global sumsign[i] = sumsign[i] + sign.(g[i])
+        tau = t*ones(Float32,size(C,1))
+        tau[findall(flag[i])] = deepcopy((t*abs.(sumsign[i])/j)[findall(flag[i])])
+        global z[i] -= tau .* g[i]
+    end
 
-	(j==1) && global lambda = [quantile(abs.(vec(z[i])), .9) for i = 1:L+1]	# estimate thresholding parameter at 1st iteration
+	(j==1) && global lambda = [quantile(abs.(vec(z[1])), .8), [quantile(abs.(vec(z[i])), .9) for i = 1:L+1]...]	# estimate thresholding parameter at 1st iteration
     lambda1 = maximum(lambda[2:end])
     for i = 2:L+1
         global lambda[i] = lambda1
@@ -136,7 +132,6 @@ for  j=1:niter
 	# Update variables and save snapshot
 	for i = 1:L+1
 		global x[i] = adjoint(C)*soft_thresholding(z[i], lambda[i])
-		global flag[i] = flag[i] .| (abs.(z[i]).>=lambda[i])     # check if ever pass the threshold
 	end
-    JLD2.@save "/scratch/results/JRM$(j)Iter$(L)vintages$(nsrc)nsrc.jld2" x z g lambda phi
+    JLD2.@save "../results/JRMsim$(j)Iter$(L)vintages$(nsrc)nsrc.jld2" x z g lambda phi
 end

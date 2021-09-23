@@ -20,9 +20,9 @@ Random.seed!(1234);
 creds=joinpath(pwd(),"..","credentials.json")
 init_culsterless(L; credentials=creds, vm_size=vm, pool_name="JointRecovery", verbose=1, nthreads=nth, auto_scale=false, n_julia_per_instance=batchsize)
 
-JLD2.@load "../models/Compass_tti_625m.jld2"
-JLD2.@load "../models/timelapsevrho$(L)vint.jld2" vp_stack rho_stack
-JLD2.@load "../data/dobs$(L)vint$(nsrc)nsrcnoisefree.jld2" dobs_stack q_stack
+JLD2.@load "/scratch/models/Compass_tti_625m.jld2"
+JLD2.@load "/scratch/models/timelapsevrho$(L)vint.jld2" vp_stack rho_stack
+JLD2.@load "/scratch/data/dobs$(L)vint$(nsrc)nsrcnoisefree.jld2" dobs_stack q_stack
 
 idx_wb = find_water_bottom(rho.-rho[1,1])
 
@@ -133,5 +133,5 @@ for  j=1:niter
 	for i = 1:L+1
 		global x[i] = adjoint(C)*soft_thresholding(z[i], lambda[i])
 	end
-    JLD2.@save "../results/JRMsim$(j)Iter$(L)vintages$(nsrc)nsrc.jld2" x z g lambda phi
+    JLD2.@save "/scratch/results/JRMsim$(j)Iter$(L)vintages$(nsrc)nsrc.jld2" x z g lambda phi
 end
